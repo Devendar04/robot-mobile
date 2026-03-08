@@ -8,6 +8,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Greet button scanning animation */
+    .dir-btn.greet-btn.scanning {
+      animation: greetPulse 1s ease-in-out infinite;
+      border-color: var(--accent-a) !important;
+      color: var(--accent-a) !important;
+    }
+    @keyframes greetPulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(var(--accent-a-rgb, 100,200,255), 0.4); }
+      50%       { opacity: 0.75; box-shadow: 0 0 0 8px rgba(var(--accent-a-rgb, 100,200,255), 0); }
+    }
+  </style>
 </head>
 <body>
 
@@ -220,6 +232,9 @@
           </button>
           <button class="dir-btn follow-off" onclick="sendControl('follow_off')">
             <span class="dir-ico">◌</span><span class="dir-lbl">Follow OFF</span>
+          </button>
+          <button class="dir-btn greet-btn" id="greetBtn" onclick="triggerGreet()">
+            <span class="dir-ico">👋</span><span class="dir-lbl" id="greetLabel">Greet</span>
           </button>
           <button class="dir-btn shutdown"   onclick="confirmShutdown()">
             <span class="dir-ico">⏻</span><span class="dir-lbl">Shutdown</span>

@@ -1,5 +1,34 @@
 'use strict';
 
+/* ── API BASE URL ───────────────────────────────────── */
+const API = (() => {
+  const h = location.hostname;
+  const p = location.port;
+  if (p === '5000') return '';
+  return `https://${h}:5000`;
+})();
+
+/* ── API TOKEN ──────────────────────────────────────── */
+// Loaded from localStorage — set once via Settings or URL param
+// URL param example: https://localhost:5000?token=abc123
+const API_TOKEN = (() => {
+  const urlToken = new URLSearchParams(location.search).get('token');
+  if (urlToken) {
+    localStorage.setItem('robot_api_token', urlToken);
+    // Remove token from URL bar for safety
+    history.replaceState({}, '', location.pathname);
+    return urlToken;
+  }
+  return localStorage.getItem('robot_api_token') || '';
+})();
+
+/* ── SECURE FETCH ───────────────────────────────────── */
+function apiFetch(path, options = {}) {
+  const headers = Object.assign({}, options.headers || {});
+  if (API_TOKEN) headers['Authorization'] = 'Bearer ' + API_TOKEN;
+  return fetch(API + path, Object.assign({}, options, { headers }));
+}
+
 /* ── MQTT TOPICS ────────────────────────────────────── */
 const TOPIC = {
   QUERY:   'robot/query/text',
@@ -210,6 +239,43 @@ function confirmShutdown() {
   if (confirm('Confirm robot shutdown?\nAll operations will terminate.')) {
     sendControl('shutdown');
   }
+}
+
+/* ── GREET ──────────────────────────────────────────── */
+let _greetActive = false;
+
+function triggerGreet() {
+  if (_greetActive) { showToast('⚠ Scan already running'); return; }
+  if (!needConn()) return;
+
+  _greetActive = true;
+  const btn      = $('greetBtn');
+  const lbl      = $('greetLabel');
+  const SCAN_SECS = 10;
+
+  btn.classList.add('scanning');
+  sysLog('Greet scan started — collecting faces for 10s…', 'cmd');
+  showToast('👋 Scanning for faces…');
+
+  // Send greet command to Pi via MQTT
+  pub(TOPIC.CONTROL, { cmd: 'greet', duration: SCAN_SECS });
+
+  // Countdown on button
+  let remaining = SCAN_SECS;
+  lbl.textContent = `Scanning ${remaining}s`;
+  const timer = setInterval(() => {
+    remaining--;
+    if (remaining > 0) {
+      lbl.textContent = `Scanning ${remaining}s`;
+    } else {
+      clearInterval(timer);
+      btn.classList.remove('scanning');
+      lbl.textContent = 'Greet';
+      _greetActive = false;
+      sysLog('Greet scan complete — Pi is greeting', 'ok');
+      showToast('👋 Greeting sent!');
+    }
+  }, 1000);
 }
 
 /* Speed dial */
@@ -457,21 +523,73 @@ function enrollFace() {
   const name = $('faceName').value.trim();
   if (!name) { showToast('⚠ Enter subject name'); return; }
   if (!hasPhoto()) return;
+
+  const fileInput = $('faceFile');
+  if (!fileInput.files[0]) { showToast('⚠ Select a photo file first'); return; }
+
   showToast(`⊕ Enrolling ${name}…`);
-  $('faceResult').innerHTML =
-    `<span style="color:var(--success)">⊕ Enrolling <b>${esc(name)}</b>…</span><br>
-     POST image to: <code>http://[ROBOT]:5000/recognize</code>`;
+  $('faceResult').innerHTML = `<span style="color:var(--accent-a)">⏳ Enrolling <b>${esc(name)}</b>…</span>`;
   sysLog(`Enroll: ${name}`, 'cmd');
+
+  const formData = new FormData();
+  formData.append('image', fileInput.files[0]);
+  formData.append('name',  name);
+
+  apiFetch('/face/enroll', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        $('faceResult').innerHTML =
+          `<span style="color:var(--success)">✓ Enrolled <b>${esc(name)}</b> successfully!<br>
+           Database rebuilt — ${data.total} persons enrolled.</span>`;
+        showToast(`✓ ${name} enrolled!`);
+        sysLog(`Enrolled: ${name} (total: ${data.total})`, 'ok');
+      } else {
+        $('faceResult').innerHTML =
+          `<span style="color:#f55">✗ Enroll failed: ${esc(data.error || 'unknown error')}</span>`;
+        showToast('✗ Enroll failed');
+      }
+    })
+    .catch(err => {
+      $('faceResult').innerHTML = `<span style="color:#f55">✗ Network error: ${esc(err.message)}</span>`;
+      showToast('✗ Network error');
+      sysLog('Enroll error: ' + err.message, 'err');
+    });
 }
 
 function recognizeFace() {
   if (!hasPhoto()) return;
+
+  const fileInput = $('faceFile');
+  if (!fileInput.files[0]) { showToast('⚠ Select a photo file first'); return; }
+
   showToast('⊙ Identifying subject…');
-  $('faceResult').innerHTML =
-    `<span style="color:var(--info)">⊙ Identification requires live camera feed.<br>
-     Endpoint: <code>POST http://[ROBOT]:5000/recognize</code></span>`;
+  $('faceResult').innerHTML = `<span style="color:var(--accent-a)">⏳ Identifying…</span>`;
   triggerScan();
   sysLog('Identify request', 'cmd');
+
+  const formData = new FormData();
+  formData.append('image', fileInput.files[0]);
+
+  apiFetch('/recognize', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      const faces = data.faces || [];
+      if (faces.length === 0) {
+        $('faceResult').innerHTML = `<span style="color:#f90">⚠ No face detected in image</span>`;
+        showToast('No face detected');
+      } else {
+        const names = faces.map(f => typeof f === 'object' ? f.name : f);
+        $('faceResult').innerHTML =
+          `<span style="color:var(--success)">✓ Identified: <b>${esc(names.join(', '))}</b></span>`;
+        showToast('✓ ' + names.join(', '));
+        sysLog('Identified: ' + names.join(', '), 'ok');
+      }
+    })
+    .catch(err => {
+      $('faceResult').innerHTML = `<span style="color:#f55">✗ Error: ${esc(err.message)}</span>`;
+      showToast('✗ Identify failed');
+    });
 }
 
 function hasPhoto() {
