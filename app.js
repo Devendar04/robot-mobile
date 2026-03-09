@@ -130,10 +130,10 @@ function connectMQTT() {
   let protocol, port, url;
 
   if (isTunnel) {
-    // Tunnel → always wss:// on port 443, no /mqtt path needed
+    // Cloudflare/ngrok tunnel → Flask /ws/mqtt proxy on port 443
     protocol = 'wss';
     port     = '443';
-    url      = `${protocol}://${broker}:${port}/`;
+    url      = `${protocol}://${broker}:${port}/ws/mqtt`;
     sysLog(`Connecting via tunnel → ${url}`);
   } else {
     // Local IP
