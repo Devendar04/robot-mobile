@@ -120,37 +120,27 @@ function toggleConnect() {
 
 function connectMQTT() {
   const broker = $('broker').value.trim();
-  const portIn = $('port').value.trim();
-  if (!broker) { showToast('⚠ Enter broker IP or ngrok URL'); return; }
+  if (!broker) { showToast('⚠ Enter broker host'); return; }
 
-  // Auto-detect ngrok / cloudflare vs local IP
-  const isNgrok      = broker.includes('ngrok');
-  const isCloudflare = broker.includes('trycloudflare') || broker.includes('cloudflare');
-  const isTunnel     = isNgrok || isCloudflare;
-  let protocol, port, url;
+  const port     = $('port').value.trim() || '8884';
+  const username = $('mqttUser').value.trim();
+  const password = $('mqttPass').value.trim();
 
-  if (isTunnel) {
-    // Cloudflare/ngrok tunnel → Flask /ws/mqtt proxy on port 443
-    protocol = 'wss';
-    port     = '443';
-    url      = `${protocol}://${broker}:${port}/ws/mqtt`;
-    sysLog(`Connecting via tunnel → ${url}`);
-  } else {
-    // Local IP
-    protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    port     = portIn || '8883';
-    url      = `${protocol}://${broker}:${port}/mqtt`;
-    sysLog(`Connecting local → ${url}`);
-  }
+  // Always use wss:// for cloud brokers (HiveMQ, EMQX etc.)
+  const url = `wss://${broker}:${port}/mqtt`;
+  sysLog(`Connecting → ${url}`);
 
-  state.client = mqtt.connect(url, {
+  const opts = {
     reconnectPeriod: 4000,
     connectTimeout:  10000,
     keepalive:       25,
     clean:           true,
     protocolVersion: 4,
     clientId:        'pcbrain_' + Math.random().toString(16).slice(2, 10),
-  });
+  };
+  if (username) { opts.username = username; opts.password = password; }
+
+  state.client = mqtt.connect(url, opts);
 
   state.client.on('connect', () => {
     state.connected   = true;
