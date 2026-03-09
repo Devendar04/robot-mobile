@@ -120,11 +120,28 @@ function toggleConnect() {
 
 function connectMQTT() {
   const broker = $('broker').value.trim();
-  const port   = $('port').value.trim();
-  if (!broker) { showToast('⚠ Enter broker IP'); return; }
+  const portIn = $('port').value.trim();
+  if (!broker) { showToast('⚠ Enter broker IP or ngrok URL'); return; }
 
-  const url = `ws://${broker}:${port}/mqtt`;
-  sysLog(`Connecting → ${url}`);
+  // Auto-detect ngrok / cloudflare vs local IP
+  const isNgrok      = broker.includes('ngrok');
+  const isCloudflare = broker.includes('trycloudflare') || broker.includes('cloudflare');
+  const isTunnel     = isNgrok || isCloudflare;
+  let protocol, port, url;
+
+  if (isTunnel) {
+    // Tunnel → always wss:// on port 443, no /mqtt path needed
+    protocol = 'wss';
+    port     = '443';
+    url      = `${protocol}://${broker}:${port}/`;
+    sysLog(`Connecting via tunnel → ${url}`);
+  } else {
+    // Local IP
+    protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    port     = portIn || '8883';
+    url      = `${protocol}://${broker}:${port}/mqtt`;
+    sysLog(`Connecting local → ${url}`);
+  }
 
   state.client = mqtt.connect(url, {
     reconnectPeriod: 4000,

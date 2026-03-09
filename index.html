@@ -8,18 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <style>
-    /* Greet button scanning animation */
-    .dir-btn.greet-btn.scanning {
-      animation: greetPulse 1s ease-in-out infinite;
-      border-color: var(--accent-a) !important;
-      color: var(--accent-a) !important;
-    }
-    @keyframes greetPulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(var(--accent-a-rgb, 100,200,255), 0.4); }
-      50%       { opacity: 0.75; box-shadow: 0 0 0 8px rgba(var(--accent-a-rgb, 100,200,255), 0); }
-    }
-  </style>
 </head>
 <body>
 
@@ -124,8 +112,8 @@
         </div>
         <div class="field-row">
           <div class="field-wrap f2">
-            <label class="field-lbl" for="broker">Broker Address</label>
-            <input class="field-in" id="broker" type="text" placeholder="192.168.1.100" autocomplete="off">
+            <label class="field-lbl" for="broker">Broker Address / ngrok URL</label>
+            <input class="field-in" id="broker" type="text" placeholder="192.168.137.22  or  abc.ngrok-free.app" autocomplete="off">
           </div>
           <div class="field-wrap f1">
             <label class="field-lbl" for="port">WS Port</label>
@@ -370,7 +358,7 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+  <script src="mqtt.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
