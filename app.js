@@ -130,6 +130,17 @@ function connectMQTT() {
   const url = `wss://${broker}:${port}/mqtt`;
   sysLog(`Connecting → ${url}`);
 
+  // Save credentials for next visit
+  if (username) {
+    localStorage.setItem("pcbrain-mqtt-user", username);
+    localStorage.setItem("pcbrain-mqtt-pass", password);
+  }
+
+  // Save connection settings for next time
+  localStorage.setItem('mqtt_broker', broker);
+  localStorage.setItem('mqtt_user', username);
+  localStorage.setItem('mqtt_pass', password);
+
   const opts = {
     reconnectPeriod: 4000,
     connectTimeout:  10000,
@@ -667,6 +678,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Apply saved theme
   setTheme(state.currentTheme);
+
+  // Restore saved connection settings
+  const savedBroker = localStorage.getItem('mqtt_broker');
+  const savedUser   = localStorage.getItem('mqtt_user');
+  const savedPass   = localStorage.getItem('mqtt_pass');
+  if (savedBroker) $('broker').value = savedBroker;
+  if (savedUser)   $('mqttUser').value = savedUser;
+  if (savedPass)   $('mqttPass').value = savedPass;
+
+  // Restore saved credentials
+
 
   // Enter key → send text
   $('textQuery').addEventListener('keypress', e => {
