@@ -1,12 +1,14 @@
 'use strict';
 
 /* ── API BASE URL ───────────────────────────────────── */
-const API = (() => {
-  const h = location.hostname;
+const DEFAULT_PC_IP = '192.168.137.22';
+function getApiBase() {
   const p = location.port;
-  if (p === '5000') return '';
-  return `https://${h}:5000`;
-})();
+  if (p === '5000') return '';  // running directly on PC Brain
+  const saved = localStorage.getItem('pcbrain_ip') || DEFAULT_PC_IP;
+  return `https://${saved}:5000`;
+}
+let API = getApiBase();
 
 /* ── API TOKEN ──────────────────────────────────────── */
 // Loaded from localStorage — set once via Settings or URL param
@@ -126,9 +128,17 @@ function connectMQTT() {
   const username = $('mqttUser').value.trim();
   const password = $('mqttPass').value.trim();
 
+  // Save PC Brain IP and update API base
+  const pcIp = $('pcIp') ? $('pcIp').value.trim() : '';
+  if (pcIp) {
+    localStorage.setItem('pcbrain_ip', pcIp);
+    API = `https://${pcIp}:5000`;
+    sysLog(`PC Brain API set to ${API}`);
+  }
+
   // Always use wss:// for cloud brokers (HiveMQ, EMQX etc.)
   const url = `wss://${broker}:${port}/mqtt`;
-  sysLog(`Connecting → ${url}`);
+  sysLog(`Connecting -> ${url}`);
 
   // Save credentials for next visit
   if (username) {
@@ -683,9 +693,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedBroker = localStorage.getItem('mqtt_broker');
   const savedUser   = localStorage.getItem('mqtt_user');
   const savedPass   = localStorage.getItem('mqtt_pass');
+  const savedPcIp   = localStorage.getItem('pcbrain_ip');
   if (savedBroker) $('broker').value = savedBroker;
   if (savedUser)   $('mqttUser').value = savedUser;
   if (savedPass)   $('mqttPass').value = savedPass;
+  if (savedPcIp && $('pcIp')) $('pcIp').value = savedPcIp;
+  else if ($('pcIp')) $('pcIp').value = DEFAULT_PC_IP;
 
   // Restore saved credentials
 
