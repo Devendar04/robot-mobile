@@ -138,7 +138,7 @@
           <span class="btn-shine"></span>
           <span id="connectTxt">⚡ ESTABLISH LINK</span>
         </button>
-        <button class="btn-primary" id="disconnectBtn" onclick="disconnectMQTT()" style="display:none; margin-top:8px; background: linear-gradient(135deg,#c0392b,#922b21);">
+        <button class="btn-primary btn-danger" id="disconnectBtn" onclick="disconnectMQTT()" style="display:none; margin-top:8px;">
           <span class="btn-shine"></span>
           <span>✦ TERMINATE LINK</span>
         </button>
@@ -272,36 +272,26 @@
           <span id="micLabel">TAP TO SPEAK</span>
         </button>
 
-        <!-- ── VOICE DEBUGGER ─────────────────────────── -->
-        <div id="voiceDebug" style="
-          background: rgba(0,0,0,0.55);
-          border: 1px solid rgba(255,255,255,0.12);
-          border-radius: 8px;
-          padding: 10px 12px;
-          margin-top: 10px;
-          font-family: monospace;
-          font-size: 11px;
-          color: #aaa;
-        ">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <span style="color:#fff; font-weight:bold;">🎙 VOICE DEBUG</span>
-            <button type="button" onclick="runMicTest()" style="
-              background: rgba(255,255,255,0.1);
-              border: 1px solid rgba(255,255,255,0.2);
-              color: #fff;
-              padding: 3px 10px;
-              border-radius: 4px;
-              font-size: 11px;
-              cursor: pointer;
-            ">TEST MIC</button>
+        <!-- ── VOICE DEBUGGER (collapsed by default) ── -->
+        <div style="margin-top:8px;">
+          <button type="button" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'" style="
+            background:transparent; border:1px solid rgba(255,255,255,0.1);
+            color:rgba(255,255,255,0.35); font-size:10px; padding:3px 10px;
+            border-radius:4px; cursor:pointer; width:100%; letter-spacing:1px;
+          ">🎙 VOICE DEBUG ▾</button>
+          <div id="voiceDebug" style="display:none; background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:10px 12px; margin-top:4px; font-family:monospace; font-size:11px; color:#aaa;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="color:#fff; font-weight:bold;">🎙 VOICE DEBUG</span>
+              <button type="button" onclick="runMicTest()" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:3px 10px; border-radius:4px; font-size:11px; cursor:pointer;">TEST MIC</button>
+            </div>
+            <div id="dbgSR"     style="margin:2px 0;">SR API: <span style="color:#f90">checking…</span></div>
+            <div id="dbgPerm"   style="margin:2px 0;">Permission: <span style="color:#f90">unknown</span></div>
+            <div id="dbgProto"  style="margin:2px 0;">Protocol: <span id="dbgProtoVal">—</span></div>
+            <div id="dbgBrowser"style="margin:2px 0;">Browser: <span id="dbgBrowserVal">—</span></div>
+            <div id="dbgState"  style="margin:2px 0;">State: <span id="dbgStateVal" style="color:#4fc">IDLE</span></div>
+            <div id="dbgLast"   style="margin:2px 0; color:#7ef;">Last heard: <span id="dbgLastVal">—</span></div>
+            <div id="dbgError"  style="margin:2px 0; color:#f55;">Error: <span id="dbgErrorVal">none</span></div>
           </div>
-          <div id="dbgSR"     style="margin:2px 0;">SR API: <span style="color:#f90">checking…</span></div>
-          <div id="dbgPerm"   style="margin:2px 0;">Permission: <span style="color:#f90">unknown</span></div>
-          <div id="dbgProto"  style="margin:2px 0;">Protocol: <span id="dbgProtoVal">—</span></div>
-          <div id="dbgBrowser"style="margin:2px 0;">Browser: <span id="dbgBrowserVal">—</span></div>
-          <div id="dbgState"  style="margin:2px 0;">State: <span id="dbgStateVal" style="color:#4fc">IDLE</span></div>
-          <div id="dbgLast"   style="margin:2px 0; color:#7ef;">Last heard: <span id="dbgLastVal">—</span></div>
-          <div id="dbgError"  style="margin:2px 0; color:#f55;">Error: <span id="dbgErrorVal">none</span></div>
         </div>
 
         <div class="convo-head">— CONVERSATION LOG —</div>
@@ -322,15 +312,18 @@
           <span class="hd-line"></span>
         </div>
 
-        <div class="face-viewport" id="faceViewport" onclick="selectPhoto()">
-          <div class="fv-corner tl"></div><div class="fv-corner tr"></div>
-          <div class="fv-corner bl"></div><div class="fv-corner br"></div>
-          <div class="fv-scan" id="fvScan"></div>
-          <img class="fv-img" id="faceImg" alt="" style="display:none">
-          <div class="fv-ph" id="fvPh">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-            <span>SELECT SUBJECT PHOTO</span>
+        <div style="position:relative">
+          <div class="face-viewport" id="faceViewport" onclick="selectPhoto()">
+            <div class="fv-corner tl"></div><div class="fv-corner tr"></div>
+            <div class="fv-corner bl"></div><div class="fv-corner br"></div>
+            <div class="fv-scan" id="fvScan"></div>
+            <img class="fv-img" id="faceImg" alt="" style="display:none">
+            <div class="fv-ph" id="fvPh">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              <span>SELECT SUBJECT PHOTO</span>
+            </div>
           </div>
+          <button id="faceClearBtn" onclick="event.stopPropagation(); clearPhoto()" style="display:none; position:absolute; top:7px; right:7px; width:26px; height:26px; border-radius:50%; background:rgba(0,0,0,0.65); border:1px solid rgba(255,255,255,0.25); color:#fff; font-size:14px; cursor:pointer; align-items:center; justify-content:center; z-index:10; line-height:1;">✕</button>
         </div>
         <input type="file" id="faceFile" accept="image/*" style="display:none">
 

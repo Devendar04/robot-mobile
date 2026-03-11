@@ -3,12 +3,14 @@
 /* ── API BASE URL ───────────────────────────────────── */
 const DEFAULT_PC_IP = '192.168.137.22';
 function getApiBase() {
-  const p = location.port;
-  if (p === '5000') return '';  // running directly on PC Brain
-  const saved = localStorage.getItem('pcbrain_ip') || DEFAULT_PC_IP;
-  return `https://${saved}:5000`;
+  if (location.port === '5000') return '';
+  const ip = ($('faceIp') && $('faceIp').value.trim()) ||
+             ($('pcIp')   && $('pcIp').value.trim())   ||
+             localStorage.getItem('pcbrain_ip') || DEFAULT_PC_IP;
+  const proto = localStorage.getItem('pcbrain_proto') || 'https';
+  return proto + '://' + ip + ':5000';
 }
-let API = getApiBase();
+Object.defineProperty(window, 'API', { get: getApiBase, configurable: true });
 
 /* ── API TOKEN ──────────────────────────────────────── */
 // Loaded from localStorage — set once via Settings or URL param
@@ -120,6 +122,22 @@ function toggleConnect() {
   state.connected ? disconnectMQTT() : connectMQTT();
 }
 
+/* -- Certificate + protocol helpers -- */
+function openTrustPage() {
+  const ip = ($('faceIp') && $('faceIp').value.trim()) ||
+             ($('pcIp')   && $('pcIp').value.trim())   ||
+             localStorage.getItem('pcbrain_ip') || DEFAULT_PC_IP;
+  window.open('https://' + ip + ':5000/health', '_blank');
+  showToast('Accept certificate in new tab, then retry');
+}
+function toggleProto() {
+  const cur  = localStorage.getItem('pcbrain_proto') || 'https';
+  const next = cur === 'https' ? 'http' : 'https';
+  localStorage.setItem('pcbrain_proto', next);
+  if ($('protoBtn')) $('protoBtn').textContent = 'Switch to ' + cur.toUpperCase();
+  showToast('Now using ' + next.toUpperCase());
+}
+
 function connectMQTT() {
   const broker = $('broker').value.trim();
   if (!broker) { showToast('⚠ Enter broker host'); return; }
@@ -132,8 +150,7 @@ function connectMQTT() {
   const pcIp = $('pcIp') ? $('pcIp').value.trim() : '';
   if (pcIp) {
     localStorage.setItem('pcbrain_ip', pcIp);
-    API = `https://${pcIp}:5000`;
-    sysLog(`PC Brain API set to ${API}`);
+    sysLog('PC Brain API set to ' + getApiBase());
   }
 
   // Always use wss:// for cloud brokers (HiveMQ, EMQX etc.)
@@ -522,8 +539,21 @@ function stopRec() {
 /* ══════════════════════════════════════════════════════
    FACE / BIOMETRIC
 ══════════════════════════════════════════════════════ */
+let _faceLoading = false;  // prevent double-submit
+
 function selectPhoto() {
   $('faceFile').click();
+}
+
+function clearPhoto() {
+  const img = $('faceImg');
+  img.src = '';
+  img.style.display = 'none';
+  $('fvPh').style.display = '';
+  $('faceFile').value = '';
+  $('faceResult').textContent = 'Awaiting biometric data…';
+  const scan = $('fvScan');
+  scan.classList.remove('scanning');
 }
 
 function loadPhoto(e) {
@@ -535,6 +565,7 @@ function loadPhoto(e) {
     img.src = ev.target.result;
     img.style.display = 'block';
     $('fvPh').style.display = 'none';
+    $('faceClearBtn').style.display = 'flex';
     triggerScan();
     sysLog('Biometric image loaded', 'ok');
   };
@@ -547,7 +578,14 @@ function triggerScan() {
   setTimeout(() => scan.classList.remove('scanning'), 3200);
 }
 
+function _setBiometricLoading(loading) {
+  _faceLoading = loading;
+  const btns = document.querySelectorAll('.face-action-btn');
+  btns.forEach(b => { b.disabled = loading; b.style.opacity = loading ? '0.5' : ''; });
+}
+
 function enrollFace() {
+  if (_faceLoading) return;
   const name = $('faceName').value.trim();
   if (!name) { showToast('⚠ Enter subject name'); return; }
   if (!hasPhoto()) return;
@@ -555,6 +593,7 @@ function enrollFace() {
   const fileInput = $('faceFile');
   if (!fileInput.files[0]) { showToast('⚠ Select a photo file first'); return; }
 
+  _setBiometricLoading(true);
   showToast(`⊕ Enrolling ${name}…`);
   $('faceResult').innerHTML = `<span style="color:var(--accent-a)">⏳ Enrolling <b>${esc(name)}</b>…</span>`;
   sysLog(`Enroll: ${name}`, 'cmd');
@@ -568,10 +607,11 @@ function enrollFace() {
     .then(data => {
       if (data.status === 'ok') {
         $('faceResult').innerHTML =
-          `<span style="color:var(--success)">✓ Enrolled <b>${esc(name)}</b> successfully!<br>
-           Database rebuilt — ${data.total} persons enrolled.</span>`;
+          `<span style="color:var(--success)">✓ Enrolled <b>${esc(name)}</b> successfully!</span>`;
         showToast(`✓ ${name} enrolled!`);
-        sysLog(`Enrolled: ${name} (total: ${data.total})`, 'ok');
+        sysLog(`Enrolled: ${name}`, 'ok');
+        // Reset so next photo can be selected
+        $('faceFile').value = '';
       } else {
         $('faceResult').innerHTML =
           `<span style="color:#f55">✗ Enroll failed: ${esc(data.error || 'unknown error')}</span>`;
@@ -582,15 +622,18 @@ function enrollFace() {
       $('faceResult').innerHTML = `<span style="color:#f55">✗ Network error: ${esc(err.message)}</span>`;
       showToast('✗ Network error');
       sysLog('Enroll error: ' + err.message, 'err');
-    });
+    })
+    .finally(() => _setBiometricLoading(false));
 }
 
 function recognizeFace() {
+  if (_faceLoading) return;
   if (!hasPhoto()) return;
 
   const fileInput = $('faceFile');
   if (!fileInput.files[0]) { showToast('⚠ Select a photo file first'); return; }
 
+  _setBiometricLoading(true);
   showToast('⊙ Identifying subject…');
   $('faceResult').innerHTML = `<span style="color:var(--accent-a)">⏳ Identifying…</span>`;
   triggerScan();
@@ -607,9 +650,14 @@ function recognizeFace() {
         $('faceResult').innerHTML = `<span style="color:#f90">⚠ No face detected in image</span>`;
         showToast('No face detected');
       } else {
+        const lines = faces.map(f => {
+          const name = typeof f === 'object' ? f.name : f;
+          const conf = typeof f === 'object' && f.confidence ? Math.round(f.confidence * 100) + '%' : '';
+          return `<b>${esc(name)}</b>${conf ? ' <span style="color:#aaa">(' + conf + ')</span>' : ''}`;
+        });
         const names = faces.map(f => typeof f === 'object' ? f.name : f);
         $('faceResult').innerHTML =
-          `<span style="color:var(--success)">✓ Identified: <b>${esc(names.join(', '))}</b></span>`;
+          `<span style="color:var(--success)">✓ Identified: ${lines.join(', ')}</span>`;
         showToast('✓ ' + names.join(', '));
         sysLog('Identified: ' + names.join(', '), 'ok');
       }
@@ -617,7 +665,8 @@ function recognizeFace() {
     .catch(err => {
       $('faceResult').innerHTML = `<span style="color:#f55">✗ Error: ${esc(err.message)}</span>`;
       showToast('✗ Identify failed');
-    });
+    })
+    .finally(() => _setBiometricLoading(false));
 }
 
 function hasPhoto() {
@@ -699,6 +748,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedPass)   $('mqttPass').value = savedPass;
   if (savedPcIp && $('pcIp')) $('pcIp').value = savedPcIp;
   else if ($('pcIp')) $('pcIp').value = DEFAULT_PC_IP;
+  if ($('faceIp')) $('faceIp').value = (savedPcIp || DEFAULT_PC_IP);
+  // Init proto button
+  const _proto = localStorage.getItem('pcbrain_proto') || 'https';
+  if ($('protoBtn')) $('protoBtn').textContent = 'Switch to ' + (_proto === 'https' ? 'HTTP' : 'HTTPS');
 
   // Restore saved credentials
 

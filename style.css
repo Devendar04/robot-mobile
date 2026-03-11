@@ -770,7 +770,7 @@ body {
 [data-theme="robo-minimal"] .convo-head::before { content:'['; }
 [data-theme="robo-minimal"] .convo-head::after  { content:']'; }
 
-.convo-log { background:var(--bg-inset); border:1px solid var(--border-lo); border-radius:var(--r-in); padding:10px; height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; transition:background 0.5s; }
+.convo-log { background:var(--bg-inset); border:1px solid var(--border-lo); border-radius:var(--r-in); padding:10px; height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; transition:background 0.5s; }
 .convo-log::-webkit-scrollbar { width:3px; }
 .convo-log::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 [data-theme="soft-neural"]  .convo-log { border-radius:2px; border-left:2px solid var(--accent-dim); }
@@ -846,6 +846,9 @@ body {
 /* ═══════════════════════════════════════════════════
    BOTTOM NAV
 ═══════════════════════════════════════════════════ */
+.btn-danger { background:linear-gradient(135deg,#c0392b,#922b21) !important; }
+.btn-danger:hover { background:linear-gradient(135deg,#e74c3c,#a93226) !important; }
+
 .bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; z-index:100; display:flex; padding:8px 10px 16px; gap:3px; background:var(--bg-nav); border-top:1px solid var(--border); backdrop-filter:blur(24px); transition:background 0.5s; }
 .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:7px 4px; border-radius:calc(var(--r-card) - 4px); cursor:pointer; background:none; border:none; color:var(--text-lo); font-family:var(--font-ui); font-size:0.53rem; letter-spacing:1px; text-transform:uppercase; transition:all 0.2s; }
 .nav-btn.active { color:var(--accent-a); background:var(--nav-active-bg); }
