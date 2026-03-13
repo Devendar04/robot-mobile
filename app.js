@@ -43,12 +43,18 @@ const TOPIC = {
 };
 
 /* ── THEMES ─────────────────────────────────────────── */
-const THEMES = ['soft-neural', 'robo-minimal', 'classic-cortex', 'aether-ai'];
+const THEMES = ['soft-neural', 'robo-minimal', 'classic-cortex', 'aether-ai',
+                'clay-morph', 'skeu-real', 'neo-brutal', 'pure-void', 'liquid-glass'];
 const THEME_NAMES = {
   'soft-neural':    'Iron Forge',
   'robo-minimal':   'Stealth Ops',
   'classic-cortex': 'Classic Cortex',
-  'aether-ai':      'Crimson Core'
+  'aether-ai':      'Crimson Core',
+  'clay-morph':     'Claymorphism',
+  'skeu-real':      'Skeuomorphism',
+  'neo-brutal':     'Neo Brutalism',
+  'pure-void':      'Minimalism',
+  'liquid-glass':   'Liquid Glass'
 };
 
 /* ── STATE ──────────────────────────────────────────── */
