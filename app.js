@@ -779,4 +779,118 @@ document.addEventListener('DOMContentLoaded', () => {
   updateDialArc(state.speedLevels[state.speedIdx]);
 
   sysLog(`PC Brain v3.0 — Theme: ${THEME_NAMES[state.currentTheme]}`, 'ok');
+
+  // ── Camera feed init ────────────────────────────────────────────────────
+  initCameraFeed();
 });
+
+/* ══════════════════════════════════════════════════════
+   CAMERA FEED
+══════════════════════════════════════════════════════ */
+
+let _camTimer   = null;
+let _camVisible = false;
+const CAM_POLL_MS = 1500;   // refresh every 1.5s
+
+function initCameraFeed() {
+  // Inject camera panel into DOM if not already present
+  if ($('cameraPanel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'cameraPanel';
+  panel.style.cssText = [
+    'display:none',
+    'position:fixed',
+    'bottom:80px',
+    'right:16px',
+    'width:260px',
+    'background:var(--color-background-primary)',
+    'border:0.5px solid var(--color-border-secondary)',
+    'border-radius:12px',
+    'overflow:hidden',
+    'z-index:999',
+    'box-shadow:0 4px 16px rgba(0,0,0,0.12)',
+  ].join(';');
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary)">
+      <span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">
+        Camera feed
+      </span>
+      <span id="camAge" style="font-size:11px;color:var(--color-text-tertiary)">connecting...</span>
+      <button onclick="toggleCameraFeed()"
+              style="font-size:11px;padding:2px 8px;margin-left:8px;
+                     border:0.5px solid var(--color-border-secondary);
+                     border-radius:6px;background:transparent;cursor:pointer;
+                     color:var(--color-text-secondary)">close</button>
+    </div>
+    <div style="position:relative;background:#000;line-height:0">
+      <img id="camImg"
+           style="width:100%;height:auto;display:block;min-height:80px"
+           alt="camera feed" />
+      <div id="camErr"
+           style="display:none;position:absolute;inset:0;
+                  background:rgba(0,0,0,0.7);
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:12px;color:#aaa;text-align:center;padding:8px">
+        No frame yet.<br>Is robot camera on?
+      </div>
+    </div>`;
+
+  document.body.appendChild(panel);
+}
+
+function toggleCameraFeed() {
+  _camVisible = !_camVisible;
+  const panel = $('cameraPanel');
+  if (!panel) return;
+
+  if (_camVisible) {
+    panel.style.display = 'block';
+    _startCamPoll();
+  } else {
+    panel.style.display = 'none';
+    _stopCamPoll();
+  }
+}
+
+function _startCamPoll() {
+  _stopCamPoll();
+  _pollCam();
+  _camTimer = setInterval(_pollCam, CAM_POLL_MS);
+}
+
+function _stopCamPoll() {
+  if (_camTimer) { clearInterval(_camTimer); _camTimer = null; }
+}
+
+function _pollCam() {
+  const img    = $('camImg');
+  const errDiv = $('camErr');
+  const ageEl  = $('camAge');
+  if (!img) return;
+
+  // Use cache-busting timestamp so browser doesn't serve cached JPEG
+  const url = API + '/camera/snapshot?t=' + Date.now();
+
+  fetch(url, { headers: API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {} })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const age = r.headers.get('X-Frame-Age-Sec');
+      if (ageEl && age) ageEl.textContent = age + 's ago';
+      return r.blob();
+    })
+    .then(blob => {
+      const objUrl = URL.createObjectURL(blob);
+      // Revoke previous object URL to free memory
+      if (img._prevUrl) URL.revokeObjectURL(img._prevUrl);
+      img._prevUrl = objUrl;
+      img.src      = objUrl;
+      if (errDiv) errDiv.style.display = 'none';
+    })
+    .catch(() => {
+      if (errDiv) errDiv.style.display = 'flex';
+      if (ageEl)  ageEl.textContent    = 'no signal';
+    });
+}
