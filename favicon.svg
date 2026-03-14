@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <style>
+      @media (prefers-color-scheme: dark) {
+        .bg   { fill: #1a1a2e }
+        .face { fill: #2a2a4a; stroke: #6c63ff; }
+        .eye  { fill: #6c63ff }
+        .ant  { stroke: #6c63ff }
+        .mouth{ fill: none; stroke: #6c63ff }
+        .ear  { fill: #2a2a4a; stroke: #6c63ff }
+      }
+    </style>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" class="bg" fill="#e8e6ff"/>
+
+  <!-- Antenna -->
+  <line x1="16" y1="3" x2="16" y2="7" class="ant" stroke="#6c63ff" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="16" cy="2.5" r="1.5" class="eye" fill="#6c63ff"/>
+
+  <!-- Ears -->
+  <rect x="3" y="12" width="3" height="5" rx="1" class="ear" fill="#d8d4ff" stroke="#6c63ff" stroke-width="0.8"/>
+  <rect x="26" y="12" width="3" height="5" rx="1" class="ear" fill="#d8d4ff" stroke="#6c63ff" stroke-width="0.8"/>
+
+  <!-- Head -->
+  <rect x="7" y="7" width="18" height="18" rx="4" class="face" fill="#d8d4ff" stroke="#6c63ff" stroke-width="1.2"/>
+
+  <!-- Eyes -->
+  <rect x="10" y="12" width="4" height="3" rx="1" class="eye" fill="#6c63ff"/>
+  <rect x="18" y="12" width="4" height="3" rx="1" class="eye" fill="#6c63ff"/>
+
+  <!-- Eye shine -->
+  <rect x="11" y="12.8" width="1" height="1" rx="0.3" fill="white" opacity="0.7"/>
+  <rect x="19" y="12.8" width="1" height="1" rx="0.3" fill="white" opacity="0.7"/>
+
+  <!-- Mouth -->
+  <path d="M11 20 Q16 23 21 20" class="mouth" fill="none" stroke="#6c63ff" stroke-width="1.2" stroke-linecap="round"/>
+</svg>
