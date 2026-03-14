@@ -1,3 +1,34 @@
+/* ══════════════════════════════════════════════════════
+   VIEW TRANSITION — smooth theme crossfade
+══════════════════════════════════════════════════════ */
+::view-transition-old(root) {
+  animation: theme-fade-out 0.25s ease forwards;
+}
+::view-transition-new(root) {
+  animation: theme-fade-in 0.3s ease forwards;
+}
+@keyframes theme-fade-out {
+  from { opacity:1; filter:blur(0px) scale(1); }
+  to   { opacity:0; filter:blur(4px) scale(0.99); }
+}
+@keyframes theme-fade-in {
+  from { opacity:0; filter:blur(4px) scale(1.01); }
+  to   { opacity:1; filter:blur(0px) scale(1); }
+}
+
+/* Fallback: smooth CSS variable transitions for non-supporting browsers */
+body, .card, .header, .stats-bar, .bottom-nav,
+.btn-primary, .field-in, .status-badge, .syslog,
+.convo-log, .face-viewport, .theme-toggle-btn, .theme-panel,
+.dir-btn, .dp-btn, .mode-pill, .speed-dial, .nav-btn {
+  transition:
+    background  0.4s ease,
+    background-color 0.4s ease,
+    border-color 0.4s ease,
+    color        0.35s ease,
+    box-shadow   0.4s ease !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    PC BRAIN — ROBOT INTERFACE  |  style.css
    ═══════════════════════════════════════════════════════════════
@@ -728,6 +759,8 @@ body {
 .dir-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
 .dir-btn { padding:12px 6px; border-radius:var(--r-btn); cursor:pointer; border:1px solid; display:flex; flex-direction:column; align-items:center; gap:6px; font-family:var(--font-body); font-size:0.72rem; font-weight:600; transition:all 0.15s; box-shadow:0 3px 12px rgba(0,0,0,0.2); }
 .dir-btn:active { transform:scale(0.93); }
+#camToggleBtn { background:rgba(79,168,201,0.12); border-color:rgba(79,168,201,0.35); color:var(--info); }
+#camToggleBtn.active { background:rgba(79,168,201,0.25); border-color:rgba(79,168,201,0.65); }
 .dir-ico { font-size:1.25rem; line-height:1; }
 .dir-lbl { font-size:0.68rem; letter-spacing:0.3px; }
 .follow-on  { background:rgba(76,175,125,0.1); border-color:rgba(76,175,125,0.35); color:#5eca90; }
@@ -1868,3 +1901,33 @@ body {
   border-radius:24px;
 }
 .lg-swatch { background:linear-gradient(135deg,rgba(180,210,255,0.8),rgba(74,127,239,0.7)); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.7) !important; }
+
+.cam-inline-panel {
+  overflow: hidden;
+  max-height: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  margin-bottom: 0;
+  transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease, padding 0.4s ease, margin 0.4s ease;
+}
+.cam-inline-panel.cam-open {
+  max-height: 500px;
+  padding-top: 16px !important;
+  padding-bottom: 14px !important;
+  opacity: 1;
+  pointer-events: auto;
+  margin-bottom: 11px;
+}
+.cam-age-badge { margin-left:auto; font-family:var(--font-ui); font-size:0.62rem; color:var(--text-lo); letter-spacing:0.8px; padding:2px 9px; border-radius:20px; border:1px solid var(--border-lo); background:var(--bg-inset); transition:color 0.3s; }
+.cam-close-btn { background:transparent; border:1px solid var(--border-lo); border-radius:var(--r-in); color:var(--text-lo); font-size:0.72rem; padding:2px 8px; cursor:pointer; margin-left:8px; font-family:var(--font-ui); transition:all 0.15s; }
+.cam-close-btn:hover { color:var(--text-hi); border-color:var(--border-hi); background:var(--bg-inset); }
+.cam-close-btn:active { transform:scale(0.92); }
+.cam-feed-wrap { position:relative; background:#000; border-radius:var(--r-in); overflow:hidden; line-height:0; margin-top:10px; min-height:100px; border:1px solid var(--border-lo); }
+.cam-img { width:100%; height:auto; display:block; }
+.cam-err { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.72); flex-direction:column; align-items:center; justify-content:center; gap:8px; font-family:var(--font-ui); font-size:0.72rem; color:#888; text-align:center; padding:16px; }
+.cam-err.visible { display:flex; }
+.cam-err-ico { font-size:1.5rem; opacity:0.5; }
+#camToggleBtn.cam-active { background:rgba(79,168,201,0.18) !important; border-color:rgba(79,168,201,0.55) !important; color:var(--info) !important; }
+#camToggleBtn.cam-active .dir-lbl { color:var(--info); }

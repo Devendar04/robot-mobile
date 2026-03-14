@@ -39,7 +39,8 @@ const TOPIC = {
   RESP:    'robot/response/text',
   STATUS:  'robot/response/status',
   DRIVE:   'robot/cmd/drive',
-  CONTROL: 'robot/cmd/control'
+  CONTROL: 'robot/cmd/control',
+  STREAM:  'robot/stream/preview'
 };
 
 /* ── THEMES ─────────────────────────────────────────── */
@@ -202,6 +203,12 @@ function connectMQTT() {
   });
 
   state.client.on('message', (topic, buf) => {
+    // Camera stream frames — handle silently, no msgCount bump
+    if (topic === TOPIC.STREAM) {
+      _onStreamFrame(buf.toString());
+      return;
+    }
+
     const raw = buf.toString();
     state.msgCount++;
     $('msgCount').textContent = state.msgCount;
@@ -426,7 +433,7 @@ function runMicTest() {
   dbgSet('dbgStateVal', 'STARTING…', '#f90');
 
   const t = new SR();
-  t.lang = 'en-IN';
+  t.lang = 'hi-IN';
   t.interimResults = false;
   t.maxAlternatives = 1;
 
@@ -473,7 +480,7 @@ function runMicTest() {
 
   function createRecognizer() {
     const r = new SR();
-    r.lang = 'en-IN';
+    r.lang            = 'hi-IN';
     r.interimResults  = false;
     r.continuous      = false;
     r.maxAlternatives = 1;
@@ -794,109 +801,89 @@ document.addEventListener('DOMContentLoaded', () => {
    CAMERA FEED
 ══════════════════════════════════════════════════════ */
 
-let _camTimer   = null;
-let _camVisible = false;
-const CAM_POLL_MS = 1500;   // refresh every 1.5s
+/* ══════════════════════════════════════════════════════
+   CAMERA — MQTT stream receiver (8 FPS base64 JPEG)
+   Frames arrive on robot/stream/preview as JSON:
+   { "frame_b64": "<base64 jpeg>" }
+══════════════════════════════════════════════════════ */
+let _camVisible    = false;
+let _camStaleTimer = null;   // detect if stream dies
+const CAM_STALE_MS = 3000;   // show error after 3s no frame
 
 function initCameraFeed() {
-  // Inject camera panel into DOM if not already present
-  if ($('cameraPanel')) return;
-
-  const panel = document.createElement('div');
-  panel.id = 'cameraPanel';
-  panel.style.cssText = [
-    'display:none',
-    'position:fixed',
-    'bottom:80px',
-    'right:16px',
-    'width:260px',
-    'background:var(--color-background-primary)',
-    'border:0.5px solid var(--color-border-secondary)',
-    'border-radius:12px',
-    'overflow:hidden',
-    'z-index:999',
-    'box-shadow:0 4px 16px rgba(0,0,0,0.12)',
-  ].join(';');
-
-  panel.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;
-                padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary)">
-      <span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">
-        Camera feed
-      </span>
-      <span id="camAge" style="font-size:11px;color:var(--color-text-tertiary)">connecting...</span>
-      <button onclick="toggleCameraFeed()"
-              style="font-size:11px;padding:2px 8px;margin-left:8px;
-                     border:0.5px solid var(--color-border-secondary);
-                     border-radius:6px;background:transparent;cursor:pointer;
-                     color:var(--color-text-secondary)">close</button>
-    </div>
-    <div style="position:relative;background:#000;line-height:0">
-      <img id="camImg"
-           style="width:100%;height:auto;display:block;min-height:80px"
-           alt="camera feed" />
-      <div id="camErr"
-           style="display:none;position:absolute;inset:0;
-                  background:rgba(0,0,0,0.7);
-                  display:flex;align-items:center;justify-content:center;
-                  font-size:12px;color:#aaa;text-align:center;padding:8px">
-        No frame yet.<br>Is robot camera on?
-      </div>
-    </div>`;
-
-  document.body.appendChild(panel);
+  // Panel is already in HTML as #camInlinePanel — nothing to inject
 }
 
 function toggleCameraFeed() {
   _camVisible = !_camVisible;
-  const panel = $('cameraPanel');
+  const panel = $('camInlinePanel');
+  const btn   = $('camToggleBtn');
   if (!panel) return;
 
   if (_camVisible) {
-    panel.style.display = 'block';
-    _startCamPoll();
+    panel.classList.add('cam-open');
+    if (btn) btn.classList.add('active');
+    // Subscribe to stream topic so frames start arriving
+    if (state.client && state.connected) {
+      state.client.subscribe(TOPIC.STREAM);
+      sysLog('Camera stream subscribed');
+    }
+    // Start stale-frame watchdog
+    _resetStaleTimer();
+    sysLog('Camera feed ON');
   } else {
-    panel.style.display = 'none';
-    _stopCamPoll();
+    panel.classList.remove('cam-open');
+    if (btn) btn.classList.remove('active');
+    // Unsubscribe — stop receiving frames (saves bandwidth)
+    if (state.client && state.connected) {
+      state.client.unsubscribe(TOPIC.STREAM);
+    }
+    _clearStaleTimer();
+    // Clear image
+    const img = $('camImg');
+    if (img) img.src = '';
+    const ageEl = $('camAge');
+    if (ageEl) ageEl.textContent = 'connecting...';
+    const errDiv = $('camErr');
+    if (errDiv) errDiv.style.display = 'none';
+    sysLog('Camera feed OFF');
   }
 }
 
-function _startCamPoll() {
-  _stopCamPoll();
-  _pollCam();
-  _camTimer = setInterval(_pollCam, CAM_POLL_MS);
+function _onStreamFrame(raw) {
+  // Called by MQTT message handler for TOPIC.STREAM
+  if (!_camVisible) return;
+  try {
+    const img    = $('camImg');
+    const errDiv = $('camErr');
+    const ageEl  = $('camAge');
+    if (!img) return;
+
+    const data = JSON.parse(raw);
+    if (!data.frame_b64) return;
+
+    // Set image from base64 directly — no fetch, no blob URL needed
+    img.src = 'data:image/jpeg;base64,' + data.frame_b64;
+    if (errDiv) errDiv.style.display = 'none';
+    if (ageEl)  ageEl.textContent = 'live ●';
+
+    // Reset stale watchdog on every good frame
+    _resetStaleTimer();
+  } catch (e) {
+    console.warn('Stream frame parse error:', e.message);
+  }
 }
 
-function _stopCamPoll() {
-  if (_camTimer) { clearInterval(_camTimer); _camTimer = null; }
+function _resetStaleTimer() {
+  _clearStaleTimer();
+  _camStaleTimer = setTimeout(() => {
+    const errDiv = $('camErr');
+    const ageEl  = $('camAge');
+    if (errDiv) errDiv.style.display = 'flex';
+    if (ageEl)  ageEl.textContent = 'no signal';
+  }, CAM_STALE_MS);
 }
 
-function _pollCam() {
-  const img    = $('camImg');
-  const errDiv = $('camErr');
-  const ageEl  = $('camAge');
-  if (!img) return;
-
-  // Use cache-busting timestamp so browser doesn't serve cached JPEG
-  const url = API + '/camera/snapshot?t=' + Date.now();
-
-  fetch(url, { headers: API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {} })
-    .then(r => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const age = r.headers.get('X-Frame-Age-Sec');
-      if (ageEl && age) ageEl.textContent = age + 's ago';
-      return r.blob();
-    })
-    .then(blob => {
-      const objUrl = URL.createObjectURL(blob);
-      // Revoke previous object URL to free memory
-      if (img._prevUrl) URL.revokeObjectURL(img._prevUrl);
-      img._prevUrl = objUrl;
-      img.src      = objUrl;
-      if (errDiv) errDiv.style.display = 'none';
-    })
-    .catch(() => {
-      if (errDiv) errDiv.style.display = 'flex';
-      if (ageEl)  ageEl.textContent    = 'no signal';
-    });
+function _clearStaleTimer() {
+  if (_camStaleTimer) { clearTimeout(_camStaleTimer); _camStaleTimer = null; }
 }

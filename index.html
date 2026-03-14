@@ -4,10 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>PC Brain — Robot Interface</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Cinzel:wght@400;600;700&family=Nunito:wght@400;600;700;800;900&family=Bangers&family=Playfair+Display:wght@400;600;700&family=Source+Code+Pro:wght@400;500;600&family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Cinzel:wght@400;600;700&family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:wght@400;700&family=Source+Code+Pro:wght@400;500&family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Bangers&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,6 +29,11 @@
     </button>
     <div class="theme-panel" id="themePanel">
       <div class="theme-panel-title">SELECT THEME</div>
+      <button class="theme-opt active" data-theme="classic-cortex" onclick="setTheme('classic-cortex')">
+        <span class="to-swatch cc-swatch"></span>
+        <span class="to-name">Classic Cortex</span>
+        <span class="to-check">✓</span>
+      </button>
       <button class="theme-opt" data-theme="soft-neural" onclick="setTheme('soft-neural')">
         <span class="to-swatch sn-swatch"></span>
         <span class="to-name">Iron Forge</span>
@@ -40,14 +44,9 @@
         <span class="to-name">Stealth Ops</span>
         <span class="to-check">✓</span>
       </button>
-      <button class="theme-opt active" data-theme="classic-cortex" onclick="setTheme('classic-cortex')">
-        <span class="to-swatch cc-swatch"></span>
-        <span class="to-name">Classic Cortex</span>
-        <span class="to-check">✓</span>
-      </button>
       <button class="theme-opt" data-theme="aether-ai" onclick="setTheme('aether-ai')">
         <span class="to-swatch aa-swatch"></span>
-        <span class="to-name">Anime Spark</span>
+        <span class="to-name">Manga Panel</span>
         <span class="to-check">✓</span>
       </button>
       <button class="theme-opt" data-theme="clay-morph" onclick="setTheme('clay-morph')">
@@ -259,9 +258,30 @@
           <button class="dir-btn greet-btn" id="greetBtn" onclick="triggerGreet()">
             <span class="dir-ico">👋</span><span class="dir-lbl" id="greetLabel">Greet</span>
           </button>
+          <button class="dir-btn" id="camToggleBtn" onclick="toggleCameraFeed()">
+            <span class="dir-ico">📷</span><span class="dir-lbl">Camera</span>
+          </button>
           <button class="dir-btn shutdown"   onclick="confirmShutdown()">
             <span class="dir-ico">⏻</span><span class="dir-lbl">Shutdown</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Camera panel -- inline below directives, shown when cam ON -->
+<div class="card cam-inline-panel" id="camInlinePanel" style="--cd:0.18s; display:block">
+        <div class="card-hd">
+          <span class="hd-ico">◈</span>
+          <span class="hd-title">CAMERA FEED</span>
+          <span id="camAge" class="cam-age-badge">connecting...</span>
+          <span class="hd-line"></span>
+          <button class="cam-close-btn" onclick="toggleCameraFeed()">✕</button>
+        </div>
+        <div class="cam-feed-wrap">
+          <img id="camImg" class="cam-img" alt="camera feed" />
+          <div id="camErr" class="cam-err">
+            <span class="cam-err-ico">⚠</span>
+            <span>No frame yet.<br>Is robot camera on?</span>
+          </div>
         </div>
       </div>
 
