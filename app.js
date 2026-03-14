@@ -433,7 +433,7 @@ function runMicTest() {
   dbgSet('dbgStateVal', 'STARTING…', '#f90');
 
   const t = new SR();
-  t.lang = 'hi-IN';
+  t.lang = 'en-IN';
   t.interimResults = false;
   t.maxAlternatives = 1;
 
@@ -480,7 +480,7 @@ function runMicTest() {
 
   function createRecognizer() {
     const r = new SR();
-    r.lang            = 'hi-IN';
+    r.lang            = 'en-IN';
     r.interimResults  = false;
     r.continuous      = false;
     r.maxAlternatives = 1;
