@@ -1,7 +1,7 @@
 'use strict';
 
 /* ── API BASE URL ───────────────────────────────────── */
-const DEFAULT_PC_IP = '192.168.137.22';
+const DEFAULT_PC_IP = 'sara-brain.local';   // mDNS — no IP needed
 function getApiBase() {
   if (location.port === '5000') return '';
   const ip = ($('faceIp') && $('faceIp').value.trim()) ||
@@ -39,23 +39,16 @@ const TOPIC = {
   RESP:    'robot/response/text',
   STATUS:  'robot/response/status',
   DRIVE:   'robot/cmd/drive',
-  CONTROL: 'robot/cmd/control',
-  STREAM:  'robot/stream/preview'
+  CONTROL: 'robot/cmd/control'
 };
 
 /* ── THEMES ─────────────────────────────────────────── */
-const THEMES = ['soft-neural', 'robo-minimal', 'classic-cortex', 'aether-ai',
-                'clay-morph', 'skeu-real', 'neo-brutal', 'pure-void', 'liquid-glass'];
+const THEMES = ['soft-neural', 'robo-minimal', 'classic-cortex', 'aether-ai'];
 const THEME_NAMES = {
   'soft-neural':    'Iron Forge',
   'robo-minimal':   'Stealth Ops',
   'classic-cortex': 'Classic Cortex',
-  'aether-ai':      'Crimson Core',
-  'clay-morph':     'Claymorphism',
-  'skeu-real':      'Skeuomorphism',
-  'neo-brutal':     'Neo Brutalism',
-  'pure-void':      'Minimalism',
-  'liquid-glass':   'Liquid Glass'
+  'aether-ai':      'Crimson Core'
 };
 
 /* ── STATE ──────────────────────────────────────────── */
@@ -203,12 +196,6 @@ function connectMQTT() {
   });
 
   state.client.on('message', (topic, buf) => {
-    // Camera stream frames — handle silently, no msgCount bump
-    if (topic === TOPIC.STREAM) {
-      _onStreamFrame(buf.toString());
-      return;
-    }
-
     const raw = buf.toString();
     state.msgCount++;
     $('msgCount').textContent = state.msgCount;
@@ -314,6 +301,14 @@ function triggerGreet() {
   btn.classList.add('scanning');
   sysLog('Greet scan started — collecting faces for 10s…', 'cmd');
   showToast('👋 Scanning for faces…');
+
+  // Reset greeting session so Sara says "Good morning/evening" again
+  pub(TOPIC.QUERY, {
+    id:   'greet-reset-' + Date.now(),
+    type: 'greet_reset',
+    data: { text: '__greet_reset__' },
+    lang: 'hinglish'
+  });
 
   // Send greet command to Pi via MQTT
   pub(TOPIC.CONTROL, { cmd: 'greet', duration: SCAN_SECS });
@@ -433,7 +428,7 @@ function runMicTest() {
   dbgSet('dbgStateVal', 'STARTING…', '#f90');
 
   const t = new SR();
-  t.lang = 'en-IN';
+  t.lang = 'hi-IN';
   t.interimResults = false;
   t.maxAlternatives = 1;
 
@@ -480,7 +475,7 @@ function runMicTest() {
 
   function createRecognizer() {
     const r = new SR();
-    r.lang            = 'en-IN';
+    r.lang            = 'hi-IN';
     r.interimResults  = false;
     r.continuous      = false;
     r.maxAlternatives = 1;
@@ -801,89 +796,107 @@ document.addEventListener('DOMContentLoaded', () => {
    CAMERA FEED
 ══════════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════════════
-   CAMERA — MQTT stream receiver (8 FPS base64 JPEG)
-   Frames arrive on robot/stream/preview as JSON:
-   { "frame_b64": "<base64 jpeg>" }
-══════════════════════════════════════════════════════ */
-let _camVisible    = false;
-let _camStaleTimer = null;   // detect if stream dies
-const CAM_STALE_MS = 3000;   // show error after 3s no frame
+let _camTimer   = null;
+let _camVisible = false;
+const CAM_POLL_MS = 1500;   // refresh every 1.5s
 
 function initCameraFeed() {
-  // Panel is already in HTML as #camInlinePanel — nothing to inject
+  // Panel is already in HTML (camInlinePanel) -- nothing to inject
 }
 
 function toggleCameraFeed() {
   _camVisible = !_camVisible;
   const panel = $('camInlinePanel');
   const btn   = $('camToggleBtn');
-  if (!panel) return;
+  const lbl   = btn ? btn.querySelector('.dir-lbl') : null;
 
   if (_camVisible) {
-    panel.classList.add('cam-open');
-    if (btn) btn.classList.add('active');
-    // Subscribe to stream topic so frames start arriving
-    if (state.client && state.connected) {
-      state.client.subscribe(TOPIC.STREAM);
-      sysLog('Camera stream subscribed');
-    }
-    // Start stale-frame watchdog
-    _resetStaleTimer();
-    sysLog('Camera feed ON');
+    if (panel) panel.classList.add('cam-open');
+    if (btn)   btn.classList.add('cam-active');
+    if (lbl)   lbl.textContent = 'Cam ON';
+    // Scroll panel into view smoothly
+    if (panel) setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    _startCamPoll();
   } else {
-    panel.classList.remove('cam-open');
-    if (btn) btn.classList.remove('active');
-    // Unsubscribe — stop receiving frames (saves bandwidth)
-    if (state.client && state.connected) {
-      state.client.unsubscribe(TOPIC.STREAM);
-    }
-    _clearStaleTimer();
-    // Clear image
-    const img = $('camImg');
-    if (img) img.src = '';
-    const ageEl = $('camAge');
-    if (ageEl) ageEl.textContent = 'connecting...';
-    const errDiv = $('camErr');
-    if (errDiv) errDiv.style.display = 'none';
-    sysLog('Camera feed OFF');
+    if (panel) panel.classList.remove('cam-open');
+    if (btn)   btn.classList.remove('cam-active');
+    if (lbl)   lbl.textContent = 'Camera';
+    _stopCamPoll();
   }
 }
 
-function _onStreamFrame(raw) {
-  // Called by MQTT message handler for TOPIC.STREAM
-  if (!_camVisible) return;
-  try {
-    const img    = $('camImg');
-    const errDiv = $('camErr');
-    const ageEl  = $('camAge');
-    if (!img) return;
+function _startCamPoll() {
+  _stopCamPoll();
+  const img    = $('camImg');
+  const errDiv = $('camErr');
+  const ageEl  = $('camAge');
+  if (!img) return;
 
-    const data = JSON.parse(raw);
-    if (!data.frame_b64) return;
+  const streamUrl = API + '/camera/stream';
 
-    // Set image from base64 directly — no fetch, no blob URL needed
-    img.src = 'data:image/jpeg;base64,' + data.frame_b64;
-    if (errDiv) errDiv.style.display = 'none';
-    if (ageEl)  ageEl.textContent = 'live ●';
+  // Try MJPEG stream first -- probe with fetch to check if endpoint exists
+  fetch(streamUrl, { method: 'HEAD', headers: API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {} })
+    .then(r => {
+      if (r.ok) {
+        // MJPEG supported -- connect directly via img.src
+        img.onerror = () => {
+          if (errDiv) errDiv.classList.add('visible');
+          if (ageEl)  ageEl.textContent    = 'no signal';
+          // Retry stream after 2s
+          _camTimer = setTimeout(() => { img.src = streamUrl; }, 2000);
+        };
+        img.onload = () => {
+          if (errDiv) errDiv.classList.remove('visible');
+          if (ageEl)  ageEl.textContent    = 'live';
+        };
+        img.src = streamUrl;
+      } else {
+        // MJPEG not available (404) -- fall back to snapshot polling
+        sysLog('MJPEG stream unavailable -- using snapshot polling');
+        _pollCam();
+        _camTimer = setInterval(_pollCam, CAM_POLL_MS);
+      }
+    })
+    .catch(() => {
+      // Network error -- fall back to snapshot polling
+      _pollCam();
+      _camTimer = setInterval(_pollCam, CAM_POLL_MS);
+    });
+}
 
-    // Reset stale watchdog on every good frame
-    _resetStaleTimer();
-  } catch (e) {
-    console.warn('Stream frame parse error:', e.message);
+function _stopCamPoll() {
+  if (_camTimer) { clearTimeout(_camTimer); _camTimer = null; }
+  const img = $('camImg');
+  if (img) {
+    img.onerror = null;
+    img.onload  = null;
+    img.src     = '';   // disconnect MJPEG stream
   }
 }
 
-function _resetStaleTimer() {
-  _clearStaleTimer();
-  _camStaleTimer = setTimeout(() => {
-    const errDiv = $('camErr');
-    const ageEl  = $('camAge');
-    if (errDiv) errDiv.style.display = 'flex';
-    if (ageEl)  ageEl.textContent = 'no signal';
-  }, CAM_STALE_MS);
-}
-
-function _clearStaleTimer() {
-  if (_camStaleTimer) { clearTimeout(_camStaleTimer); _camStaleTimer = null; }
+function _pollCam() {
+  // Legacy fallback -- only used if MJPEG unavailable
+  const img    = $('camImg');
+  const errDiv = $('camErr');
+  const ageEl  = $('camAge');
+  if (!img) return;
+  const url = API + '/camera/snapshot?t=' + Date.now();
+  fetch(url, { headers: API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {} })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const age = r.headers.get('X-Frame-Age-Sec');
+      if (ageEl && age) ageEl.textContent = age + 's ago';
+      return r.blob();
+    })
+    .then(blob => {
+      const objUrl = URL.createObjectURL(blob);
+      if (img._prevUrl) URL.revokeObjectURL(img._prevUrl);
+      img._prevUrl = objUrl;
+      img.src      = objUrl;
+      if (errDiv) errDiv.classList.remove('visible');
+    })
+    .catch(() => {
+      if (errDiv) errDiv.classList.add('visible');
+      if (ageEl)  ageEl.textContent    = 'no signal';
+    });
 }
